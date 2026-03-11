@@ -1,1 +1,1 @@
-# Attendance-Tracker-Mobile-App
+Attendance Tracker Mobile app
