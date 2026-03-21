@@ -1,0 +1,331 @@
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, SafeAreaView, ScrollView, TouchableWithoutFeedback } from 'react-native';
+import { useAuthStore } from '../../store/authStore';
+import { MaterialIcons } from '@expo/vector-icons';
+import QRCode from 'react-native-qrcode-svg';
+
+export default function TeacherProfileScreen() {
+  const { user, logout } = useAuthStore();
+  const [isBeaconActive, setIsBeaconActive] = useState(false);
+  const [isQRModalVisible, setIsQRModalVisible] = useState(false);
+
+  // Helper to get initials
+  const getInitials = (name?: string) => {
+    return name ? name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase() : 'U';
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        
+        {/* Profile Card */}
+        <View style={styles.profileSection}>
+          <View style={styles.avatarContainer}>
+            <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
+          </View>
+          <Text style={styles.nameText}>{user?.name || 'Teacher Name'}</Text>
+          <Text style={styles.emailText}>{user?.email || 'teacher@example.com'}</Text>
+          <View style={styles.departmentBadge}>
+             <Text style={styles.departmentText}>Computer Science</Text>
+          </View>
+        </View>
+
+        {/* Stats Card */}
+        <View style={styles.statsCard}>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>3</Text>
+            <Text style={styles.statLabel}>Classes Today</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>145</Text>
+            <Text style={styles.statLabel}>Total Students</Text>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity 
+            style={styles.primaryButton} 
+            onPress={() => setIsQRModalVisible(true)}
+          >
+            <MaterialIcons name="qr-code" size={24} color="#FFFFFF" style={styles.btnIcon} />
+            <Text style={styles.primaryButtonText}>Generate QR Code</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.primaryButton, isBeaconActive ? styles.beaconActiveBtn : styles.beaconOffBtn]} 
+            onPress={() => setIsBeaconActive(!isBeaconActive)}
+          >
+            <MaterialIcons 
+              name={isBeaconActive ? "bluetooth-connected" : "bluetooth"} 
+              size={24} 
+              color={isBeaconActive ? "#FFFFFF" : "#1F3864"} 
+              style={styles.btnIcon} 
+            />
+            <Text style={isBeaconActive ? styles.primaryButtonText : styles.secondaryButtonText}>
+              {isBeaconActive ? 'Beacon Active' : 'Turn On Bluetooth Beacon'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.spacer} />
+
+        {/* Logout Button */}
+        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+          <MaterialIcons name="logout" size={20} color="#D32F2F" style={styles.btnIcon} />
+          <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
+
+      </ScrollView>
+
+      {/* QR Code Modal */}
+      <Modal
+        visible={isQRModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsQRModalVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPressOut={() => setIsQRModalVisible(false)}
+        >
+          <TouchableWithoutFeedback>
+            <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Scan for Attendance</Text>
+            
+            <View style={styles.qrContainer}>
+              <QRCode
+                value="SESSION-MOCK-001"
+                size={220}
+                color="#1F3864"
+                backgroundColor="#FFFFFF"
+              />
+            </View>
+            
+            <Text style={styles.modalSubText}>Session ID: SESSION-MOCK-001</Text>
+            
+            <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={() => setIsQRModalVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
+        </TouchableOpacity>
+      </Modal>
+
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FA', // Light clean background
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 20,
+    alignItems: 'center',
+  },
+  profileSection: {
+    alignItems: 'center',
+    marginBottom: 30,
+    marginTop: 20,
+  },
+  avatarContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#1F3864',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+    shadowColor: '#1F3864',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  avatarText: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  nameText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 4,
+  },
+  emailText: {
+    fontSize: 16,
+    color: '#666666',
+    marginBottom: 10,
+  },
+  departmentBadge: {
+    backgroundColor: '#E8EDF5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  departmentText: {
+    fontSize: 14,
+    color: '#1F3864',
+    fontWeight: '600',
+  },
+  statsCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    marginBottom: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1F3864',
+    marginBottom: 5,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#666666',
+    fontWeight: '500',
+  },
+  divider: {
+    width: 1,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 15,
+  },
+  actionsContainer: {
+    width: '100%',
+  },
+  primaryButton: {
+    flexDirection: 'row',
+    backgroundColor: '#1F3864',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 15,
+    shadowColor: '#1F3864',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  beaconOffBtn: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#1F3864',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  beaconActiveBtn: {
+    backgroundColor: '#4CAF50', // Green for active status
+    shadowColor: '#4CAF50',
+  },
+  secondaryButtonText: {
+    color: '#1F3864',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  btnIcon: {
+    marginRight: 2,
+  },
+  spacer: {
+    flex: 1,
+    minHeight: 40,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#FFF0F0',
+    borderWidth: 1,
+    borderColor: '#FFCDCD',
+    width: '100%',
+    marginBottom: 10,
+  },
+  logoutButtonText: {
+    color: '#D32F2F',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 20,
+  },
+  qrContainer: {
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    marginBottom: 20,
+  },
+  modalSubText: {
+    fontSize: 16,
+    color: '#666666',
+    fontWeight: '500',
+    marginBottom: 30,
+  },
+  closeButton: {
+    backgroundColor: '#1F3864',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+});
