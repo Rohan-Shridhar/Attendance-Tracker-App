@@ -18,3 +18,6 @@
 - adb reverse tcp:8081 tcp:8081
 - npx expo start --localhost
 - npx expo start
+- npx expo install react-native-svg
+- npx expo install --check = Dependencies are up to date
+- npx expo start
