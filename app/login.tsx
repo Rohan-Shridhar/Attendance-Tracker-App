@@ -36,8 +36,7 @@ export default function LoginScreen() {
         style={styles.container}
       >
         <View style={styles.headerContainer}>
-          <Text style={styles.logo}>AttendX</Text>
-          <Text style={styles.subtitle}>Smart Attendance System</Text>
+          <Text style={styles.logo}>Attendance Tracker</Text>
         </View>
 
         <View style={styles.formContainer}>
