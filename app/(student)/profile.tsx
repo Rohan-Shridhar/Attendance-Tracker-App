@@ -10,7 +10,9 @@ import {
   Animated,
   Button,
   TouchableWithoutFeedback,
-  ActivityIndicator // Added for the new modal
+  ActivityIndicator,
+  Alert,
+  Linking
 } from 'react-native';
 import { useAuthStore } from '../../store/authStore';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -33,6 +35,30 @@ export default function StudentProfileScreen() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  const scanLineAnim = React.useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isScannerVisible) {
+      scanLineAnim.setValue(0);
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(scanLineAnim, {
+            toValue: 246,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scanLineAnim, {
+            toValue: 0,
+            duration: 1500,
+            useNativeDriver: true,
+          })
+        ])
+      ).start();
+    } else {
+      scanLineAnim.stopAnimation();
+    }
+  }, [isScannerVisible, scanLineAnim]);
 
   const PulseRings = ({ isActive, color }: { isActive: boolean, color: string }) => {
     const ring1 = React.useRef(new Animated.Value(0)).current;
@@ -117,18 +143,26 @@ export default function StudentProfileScreen() {
     );
   };
 
-  const handleScanQRCode = () => {
-    // Original logic for camera permission, now just opens the mock scanner
-    // if (!permission?.granted) {
-    //   requestPermission();
-    // } else {
-    //   setIsScanning(true);
-    // }
-    setIsScannerVisible(true); // Open the mock scanner modal
+  const handleScanQRCode = async () => {
+    if (!permission?.granted) {
+      const result = await requestPermission();
+      if (!result.granted) {
+        Alert.alert(
+          "Permission Required",
+          "Camera permission is required to scan QR codes",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() }
+          ]
+        );
+        return;
+      }
+    }
+    setIsScannerVisible(true);
   };
 
   const handleBarcodeScanned = ({ data }: { data: string }) => {
-    setIsScanning(false);
+    setIsScannerVisible(false);
     setSuccessMessage(`Attendance Marked!\nScanned: ${data}`);
     setSuccessModalVisible(true);
   };
@@ -153,13 +187,6 @@ export default function StudentProfileScreen() {
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000); // Hide toast after 3 seconds
     }, 2000); // Simulate 2 seconds connection time
-  };
-
-  const mockSuccessfulScan = () => {
-    setIsScannerVisible(false);
-    setToastMessage('QR Code Scanned! Attendance Marked.');
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
   };
 
   const getInitials = (name?: string) => {
@@ -259,38 +286,39 @@ export default function StudentProfileScreen() {
         animationType="slide"
         onRequestClose={() => setIsScannerVisible(false)}
       >
-        <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
-          <View style={[styles.modalHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Scan QR Code</Text>
-            <TouchableOpacity onPress={() => setIsScannerVisible(false)}>
-              <MaterialIcons name="close" size={28} color={colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.scannerContainer, { backgroundColor: '#000' }]}>
-            {/* Mock Camera View */}
-            <View style={styles.mockCamera}>
-              <MaterialIcons name="camera-alt" size={64} color="#666" />
-              <Text style={styles.mockCameraText}>Camera View Placeholder</Text>
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <CameraView
+            style={StyleSheet.absoluteFillObject}
+            facing="back"
+            onBarcodeScanned={handleBarcodeScanned}
+            barcodeScannerSettings={{
+              barcodeTypes: ["qr"],
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
+              <View style={{ flexDirection: 'row', height: 250 }}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
+                <View style={{ width: 250, height: 250, borderColor: colors.primary, borderWidth: 2, backgroundColor: 'transparent', overflow: 'hidden' }}>
+                  <Animated.View style={{
+                    width: '100%',
+                    height: 4,
+                    backgroundColor: colors.primary,
+                    transform: [{ translateY: scanLineAnim }]
+                  }} />
+                </View>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
+              </View>
+              <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' }}>
+                <TouchableOpacity 
+                  style={[styles.mockScanButton, { backgroundColor: colors.primary, width: 200 }]} 
+                  onPress={() => setIsScannerVisible(false)}
+                >
+                  <Text style={styles.mockScanText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-
-            {/* Scanner Overlay UI */}
-            <View style={styles.scannerOverlay}>
-              <View style={styles.scanFrame} />
-            </View>
-          </View>
-
-          <View style={[styles.scannerFooter, { backgroundColor: colors.card }]}>
-            <Text style={[styles.scannerInstructions, { color: colors.subtext }]}>
-              Position the QR code within the frame to scan
-            </Text>
-            <TouchableOpacity
-              style={[styles.mockScanButton, { backgroundColor: colors.primary }]}
-              onPress={mockSuccessfulScan}
-            >
-              <Text style={styles.mockScanText}>Simulate Successful Scan</Text>
-            </TouchableOpacity>
-          </View>
+          </CameraView>
         </View>
       </Modal>
 
@@ -323,36 +351,7 @@ export default function StudentProfileScreen() {
         </View>
       )}
 
-      {/* Original QR Scanner Modal (now unused due to new UI, but kept for context if needed) */}
-      {/* <Modal visible={isScanning} animationType="slide">
-        <SafeAreaView style={styles.scannerContainer}>
-          <View style={styles.scannerHeader}>
-            <Text style={styles.scannerTitle}>Scan QR Code</Text>
-            <TouchableOpacity onPress={() => setIsScanning(false)}>
-              <MaterialIcons name="close" size={28} color="#FFF" />
-            </TouchableOpacity>
-          </View>
-          {permission?.granted ? (
-            <CameraView
-              style={styles.camera}
-              facing="back"
-              onBarcodeScanned={handleBarcodeScanned}
-              barcodeScannerSettings={{
-                barcodeTypes: ["qr"],
-              }}
-            >
-              <View style={styles.overlay}>
-                <View style={styles.scanFrame} />
-              </View>
-            </CameraView>
-          ) : (
-            <View style={styles.permissionContainer}>
-              <Text style={styles.permissionText}>We need your permission to show the camera</Text>
-              <Button onPress={requestPermission} title="Grant permission" />
-            </View>
-          )}
-        </SafeAreaView>
-      </Modal>
+      {/* Original QR Scanner Modal (Removed) */}
 
       {/* Success Modal */}
       <Modal
