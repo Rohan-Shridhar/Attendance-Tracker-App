@@ -7,8 +7,15 @@ import {
   FlatList, 
   TouchableOpacity, 
   Alert,
-  SafeAreaView
+  SafeAreaView,
+  LayoutAnimation,
+  Platform,
+  UIManager
 } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { MaterialIcons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 
@@ -24,11 +31,27 @@ const MOCK_STUDENTS = [
 
 export default function TeacherStudentsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortType, setSortType] = useState<'name' | 'attendance'>('name');
   const { colors } = useThemeStore();
 
-  const filteredStudents = MOCK_STUDENTS.filter((student) => 
-    student.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleSortChange = (type: 'name' | 'attendance') => {
+    if (type !== sortType) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setSortType(type);
+    }
+  };
+
+  const filteredStudents = [...MOCK_STUDENTS]
+    .filter((student) => 
+      student.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (sortType === 'name') {
+        return a.name.localeCompare(b.name);
+      } else {
+        return a.attendance - b.attendance;
+      }
+    });
 
   const handleSendAlert = () => {
     // Count students with attendance < 75%
@@ -105,6 +128,22 @@ export default function TeacherStudentsScreen() {
         />
       </View>
 
+      {/* Sort Controls */}
+      <View style={styles.sortContainer}>
+        <TouchableOpacity 
+          style={[styles.sortButton, sortType === 'name' ? { backgroundColor: colors.primary, borderColor: colors.primary } : { backgroundColor: 'transparent', borderColor: colors.border }]}
+          onPress={() => handleSortChange('name')}
+        >
+          <Text style={[styles.sortButtonText, { color: sortType === 'name' ? '#FFFFFF' : colors.text }]}>Name</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.sortButton, sortType === 'attendance' ? { backgroundColor: colors.primary, borderColor: colors.primary } : { backgroundColor: 'transparent', borderColor: colors.border }]}
+          onPress={() => handleSortChange('attendance')}
+        >
+          <Text style={[styles.sortButtonText, { color: sortType === 'attendance' ? '#FFFFFF' : colors.text }]}>Attendance</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Student List */}
       <FlatList
         data={filteredStudents}
@@ -169,6 +208,24 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#333333',
+  },
+  sortContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    gap: 10,
+  },
+  sortButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sortButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   listContent: {
     paddingHorizontal: 16,
