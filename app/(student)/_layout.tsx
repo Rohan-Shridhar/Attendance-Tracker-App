@@ -19,10 +19,10 @@ export default function StudentLayout() {
         }}
       />
       <Tabs.Screen
-        name="classes"
+        name="subject"
         options={{
-          title: 'Classes',
-          tabBarIcon: ({ color }) => <Ionicons name="calendar" size={24} color={color} />,
+          href: null,
+          title: 'Subject Details',
         }}
       />
       <Tabs.Screen

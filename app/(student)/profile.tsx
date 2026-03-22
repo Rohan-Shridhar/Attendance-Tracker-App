@@ -14,9 +14,11 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { MaterialIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useRouter } from 'expo-router';
 
 export default function StudentProfileScreen() {
   const { user, logout } = useAuthStore();
+  const router = useRouter();
   const [isBeaconActive, setIsBeaconActive] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
@@ -110,7 +112,7 @@ export default function StudentProfileScreen() {
               <TouchableOpacity 
                 key={subject.id} 
                 style={styles.subjectCard}
-                onPress={() => console.log(`Tapped ${subject.name}`)}
+                onPress={() => router.push({ pathname: '/(student)/subject', params: { name: subject.name, percentage: subject.percentage } })}
               >
                 <View style={styles.subjectIcon}>
                   <Text style={styles.subjectIconText}>{subject.name.substring(0, 1)}</Text>
