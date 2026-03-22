@@ -1,14 +1,24 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { TouchableOpacity } from 'react-native';
+import { useThemeStore } from '../../store/themeStore';
 
 export default function StudentLayout() {
+  const { colors, isDarkMode, toggleTheme } = useThemeStore();
+
   return (
     <Tabs 
       screenOptions={{ 
-        headerStyle: { backgroundColor: '#1F3864' },
+        headerStyle: { backgroundColor: colors.primary },
         headerTintColor: '#FFF',
         headerTitleStyle: { fontWeight: 'bold' },
-        tabBarActiveTintColor: '#1F3864',
+        tabBarActiveTintColor: colors.primary,
+        tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.border },
+        headerRight: () => (
+          <TouchableOpacity onPress={toggleTheme} style={{ marginRight: 15 }}>
+            <Ionicons name={isDarkMode ? 'sunny-outline' : 'moon-outline'} size={24} color="#FFF" />
+          </TouchableOpacity>
+        ),
       }}
     >
       <Tabs.Screen
@@ -19,10 +29,10 @@ export default function StudentLayout() {
         }}
       />
       <Tabs.Screen
-        name="classes"
+        name="subject"
         options={{
-          title: 'Classes',
-          tabBarIcon: ({ color }) => <Ionicons name="calendar" size={24} color={color} />,
+          href: null,
+          title: 'Subject Details',
         }}
       />
       <Tabs.Screen
