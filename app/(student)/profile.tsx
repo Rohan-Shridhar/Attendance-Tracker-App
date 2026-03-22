@@ -34,30 +34,76 @@ export default function StudentProfileScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  // Animation for bluetooth pulse
-  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  const PulseRings = ({ isActive, color }: { isActive: boolean, color: string }) => {
+    const ring1 = React.useRef(new Animated.Value(0)).current;
+    const ring2 = React.useRef(new Animated.Value(0)).current;
+    const ring3 = React.useRef(new Animated.Value(0)).current;
 
-  // Start pulsing animation when beacon is active
-  useEffect(() => {
-    if (isBeaconActive) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 0.5,
-            duration: 800,
-            useNativeDriver: true,
+    useEffect(() => {
+      if (isActive) {
+        const startAnim = (anim: Animated.Value) => {
+          anim.setValue(0);
+          Animated.loop(
+            Animated.timing(anim, {
+              toValue: 1,
+              duration: 1500,
+              useNativeDriver: true,
+            })
+          ).start();
+        };
+
+        startAnim(ring1);
+        const t1 = setTimeout(() => startAnim(ring2), 500);
+        const t2 = setTimeout(() => startAnim(ring3), 1000);
+
+        return () => {
+          clearTimeout(t1);
+          clearTimeout(t2);
+          ring1.stopAnimation();
+          ring2.stopAnimation();
+          ring3.stopAnimation();
+          ring1.setValue(0);
+          ring2.setValue(0);
+          ring3.setValue(0);
+        };
+      }
+    }, [isActive]);
+
+    if (!isActive) return null;
+
+    const renderRing = (anim: Animated.Value) => (
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          width: 24,
+          height: 24,
+          borderRadius: 12,
+          backgroundColor: color,
+          opacity: anim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.6, 0],
           }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
-    }
-  }, [isBeaconActive, pulseAnim]);
+          transform: [
+            {
+              scale: anim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 2.5],
+              }),
+            },
+          ],
+        }}
+      />
+    );
+
+    return (
+      <View style={{ position: 'absolute', width: 24, height: 24, justifyContent: 'center', alignItems: 'center' }}>
+        {renderRing(ring1)}
+        {renderRing(ring2)}
+        {renderRing(ring3)}
+      </View>
+    );
+  };
 
   const handleScanQRCode = () => {
     // Original logic for camera permission, now just opens the mock scanner
@@ -172,10 +218,15 @@ export default function StudentProfileScreen() {
 
           <TouchableOpacity
             style={[styles.primaryButton, { backgroundColor: colors.card, borderColor: colors.primary, borderWidth: 1.5, shadowOpacity: 0, elevation: 0 }]}
-            onPress={handleConnectBluetooth}
+            onPress={() => setIsBeaconActive(!isBeaconActive)}
           >
-            <MaterialIcons name="bluetooth" size={24} color={colors.primary} style={styles.btnIcon} />
-            <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Connect via Bluetooth</Text>
+            <View style={{ width: 24, height: 24, justifyContent: 'center', alignItems: 'center', marginRight: 4 }}>
+              <PulseRings isActive={isBeaconActive} color={colors.primary} />
+              <MaterialIcons name="bluetooth" size={24} color={colors.primary} />
+            </View>
+            <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>
+              {isBeaconActive ? 'BT Scanning...' : 'Turn On Bluetooth'}
+            </Text>
           </TouchableOpacity>
         </View>
 

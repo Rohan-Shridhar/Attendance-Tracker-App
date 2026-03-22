@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, SafeAreaView, ScrollView, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, SafeAreaView, ScrollView, TouchableWithoutFeedback, Animated } from 'react-native';
 import { useAuthStore } from '../../store/authStore';
 import { MaterialIcons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
@@ -13,6 +13,78 @@ export default function TeacherProfileScreen() {
   const [studentCount, setStudentCount] = useState(0);
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [showToast, setShowToast] = useState(false);
+
+  const PulseRings = ({ isActive, color }: { isActive: boolean, color: string }) => {
+    const ring1 = React.useRef(new Animated.Value(0)).current;
+    const ring2 = React.useRef(new Animated.Value(0)).current;
+    const ring3 = React.useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      if (isActive) {
+        const startAnim = (anim: Animated.Value) => {
+          anim.setValue(0);
+          Animated.loop(
+            Animated.timing(anim, {
+              toValue: 1,
+              duration: 1500,
+              useNativeDriver: true,
+            })
+          ).start();
+        };
+
+        startAnim(ring1);
+        const t1 = setTimeout(() => startAnim(ring2), 500);
+        const t2 = setTimeout(() => startAnim(ring3), 1000);
+
+        return () => {
+          clearTimeout(t1);
+          clearTimeout(t2);
+          ring1.stopAnimation();
+          ring2.stopAnimation();
+          ring3.stopAnimation();
+          ring1.setValue(0);
+          ring2.setValue(0);
+          ring3.setValue(0);
+        };
+      }
+    }, [isActive]);
+
+    if (!isActive) return null;
+
+    const renderRing = (anim: Animated.Value) => (
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          width: 24,
+          height: 24,
+          borderRadius: 12,
+          backgroundColor: color,
+          opacity: anim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.6, 0],
+          }),
+          transform: [
+            {
+              scale: anim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 2.5],
+              }),
+            },
+          ],
+        }}
+      />
+    );
+
+    return (
+      <View style={{ position: 'absolute', width: 24, height: 24, justifyContent: 'center', alignItems: 'center' }}>
+        {renderRing(ring1)}
+        {renderRing(ring2)}
+        {renderRing(ring3)}
+      </View>
+    );
+  };
+
 
   useEffect(() => {
     let timer: any;
@@ -84,12 +156,14 @@ export default function TeacherProfileScreen() {
             style={[styles.primaryButton, isBeaconActive ? { backgroundColor: colors.badgeGreen, shadowColor: colors.badgeGreen } : { backgroundColor: colors.card, borderColor: colors.primary, borderWidth: 1.5, shadowOpacity: 0, elevation: 0 }]} 
             onPress={() => setIsBeaconActive(!isBeaconActive)}
           >
-            <MaterialIcons 
-              name={isBeaconActive ? "bluetooth-connected" : "bluetooth"} 
-              size={24} 
-              color={isBeaconActive ? "#FFFFFF" : colors.primary} 
-              style={styles.btnIcon} 
-            />
+            <View style={{ width: 24, height: 24, justifyContent: 'center', alignItems: 'center', marginRight: 4 }}>
+              <PulseRings isActive={isBeaconActive} color={colors.primary} />
+              <MaterialIcons 
+                name={isBeaconActive ? "bluetooth-connected" : "bluetooth"} 
+                size={24} 
+                color={isBeaconActive ? "#FFFFFF" : colors.primary} 
+              />
+            </View>
             <Text style={isBeaconActive ? styles.primaryButtonText : [styles.secondaryButtonText, { color: colors.primary }]}>
               {isBeaconActive ? 'Beacon Active' : 'Turn On Bluetooth Beacon'}
             </Text>
