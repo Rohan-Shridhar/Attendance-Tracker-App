@@ -4,13 +4,16 @@ import { useAuthStore } from '../../store/authStore';
 import { MaterialIcons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import { useThemeStore } from '../../store/themeStore';
+import { useAttendanceStore } from '../../store/attendanceStore';
 
 export default function TeacherProfileScreen() {
   const { user, logout } = useAuthStore();
   const { colors } = useThemeStore();
-  const [isBeaconActive, setIsBeaconActive] = useState(false);
+  const { 
+    qrPhase, bluetoothPhase, scannedCount, connectedCount, 
+    setQrPhase, setBluetoothPhase, incrementScannedCount, incrementConnectedCount, resetFlow 
+  } = useAttendanceStore();
   const [isQRModalVisible, setIsQRModalVisible] = useState(false);
-  const [studentCount, setStudentCount] = useState(0);
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [showToast, setShowToast] = useState(false);
 
@@ -99,25 +102,37 @@ export default function TeacherProfileScreen() {
 
 
   useEffect(() => {
-    let timer: any;
-    if (isBeaconActive) {
-      setStudentCount(0);
+    let timer: ReturnType<typeof setTimeout>;
+    if (isQRModalVisible && scannedCount < 3) {
       timer = setTimeout(() => {
-        setStudentCount(3);
-      }, 2000);
-    } else {
-      setStudentCount(0);
+        incrementScannedCount();
+      }, 3000);
     }
     return () => clearTimeout(timer);
-  }, [isBeaconActive]);
+  }, [isQRModalVisible, scannedCount, incrementScannedCount]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (bluetoothPhase && connectedCount < scannedCount) {
+      timer = setTimeout(() => {
+        incrementConnectedCount();
+      }, 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [bluetoothPhase, connectedCount, scannedCount, incrementConnectedCount]);
 
   const handleSaveAttendance = () => {
     setIsConfirmationVisible(false);
-    setIsBeaconActive(false);
+    resetFlow();
     setShowToast(true);
     setTimeout(() => {
       setShowToast(false);
     }, 2000);
+  };
+
+  const handleCloseQR = () => {
+    setIsQRModalVisible(false);
+    setQrPhase(false);
   };
 
   // Helper to get initials
@@ -157,36 +172,67 @@ export default function TeacherProfileScreen() {
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity 
-            style={[styles.primaryButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]} 
+            style={[
+              styles.primaryButton, 
+              qrPhase ? { backgroundColor: colors.primary, shadowColor: colors.primary } 
+                      : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1.5, shadowOpacity: 0, elevation: 0, opacity: 0.5 }
+            ]} 
             onPress={() => setIsQRModalVisible(true)}
+            disabled={!qrPhase}
           >
-            <MaterialIcons name="qr-code" size={24} color="#FFFFFF" style={styles.btnIcon} />
-            <Text style={styles.primaryButtonText}>Generate QR Code</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.primaryButton, isBeaconActive ? { backgroundColor: colors.badgeGreen, shadowColor: colors.badgeGreen } : { backgroundColor: colors.card, borderColor: colors.primary, borderWidth: 1.5, shadowOpacity: 0, elevation: 0 }]} 
-            onPress={() => setIsBeaconActive(!isBeaconActive)}
-          >
-            <View style={{ width: 24, height: 24, justifyContent: 'center', alignItems: 'center', marginRight: 4 }}>
-              <PulseRings isActive={isBeaconActive} color={colors.primary} />
-              <MaterialIcons 
-                name={isBeaconActive ? "bluetooth-connected" : "bluetooth"} 
-                size={24} 
-                color={isBeaconActive ? "#FFFFFF" : colors.primary} 
-              />
-            </View>
-            <Text style={isBeaconActive ? styles.primaryButtonText : [styles.secondaryButtonText, { color: colors.primary }]}>
-              {isBeaconActive ? 'Beacon Active' : 'Turn On Bluetooth Beacon'}
+            <MaterialIcons name="qr-code" size={24} color={qrPhase ? "#FFFFFF" : colors.subtext} style={styles.btnIcon} />
+            <Text style={qrPhase ? styles.primaryButtonText : [styles.secondaryButtonText, { color: colors.subtext }]}>
+              {qrPhase ? 'Show QR Code' : 'QR Sent ✓'}
             </Text>
           </TouchableOpacity>
 
-          {isBeaconActive && (
+          {!qrPhase && (
+            <Text style={{ textAlign: 'center', color: colors.subtext, marginBottom: 15, fontSize: 14, fontWeight: '500' }}>
+              {scannedCount} students have scanned
+            </Text>
+          )}
+
+          <TouchableOpacity 
+            style={[
+              styles.primaryButton, 
+              bluetoothPhase 
+                ? { backgroundColor: colors.badgeGreen, shadowColor: colors.badgeGreen } 
+                : (!qrPhase 
+                    ? { backgroundColor: colors.card, borderColor: colors.primary, borderWidth: 1.5, shadowOpacity: 0, elevation: 0 } 
+                    : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1.5, opacity: 0.5, shadowOpacity: 0, elevation: 0 })
+            ]} 
+            onPress={() => setBluetoothPhase(!bluetoothPhase)}
+            disabled={qrPhase}
+          >
+            <View style={{ width: 24, height: 24, justifyContent: 'center', alignItems: 'center', marginRight: 4 }}>
+              <PulseRings isActive={bluetoothPhase} color={colors.primary} />
+              <MaterialIcons 
+                name={bluetoothPhase ? "bluetooth-connected" : "bluetooth"} 
+                size={24} 
+                color={bluetoothPhase ? "#FFFFFF" : (!qrPhase ? colors.primary : colors.subtext)} 
+              />
+            </View>
+            <Text style={
+              bluetoothPhase 
+                ? styles.primaryButtonText 
+                : [styles.secondaryButtonText, { color: !qrPhase ? colors.primary : colors.subtext }]
+            }>
+              {bluetoothPhase 
+                ? 'Beacon Active' 
+                : (!qrPhase ? 'Turn On Bluetooth Beacon' : 'Bluetooth (Locked)')}
+            </Text>
+          </TouchableOpacity>
+
+          {bluetoothPhase && (
             <View style={[styles.beaconCard, { backgroundColor: colors.inputBackground }]}>
-              <Text style={[styles.beaconText, { color: colors.primary }]}>{studentCount} students connected</Text>
+              <Text style={[styles.beaconText, { color: colors.primary }]}>{connectedCount} students connected</Text>
+              
+              {connectedCount === scannedCount && scannedCount > 0 && (
+                <Text style={{ color: colors.badgeGreen, fontSize: 12, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' }}>All scanned students connected — ready to save!</Text>
+              )}
+
               <TouchableOpacity 
                 style={[styles.saveAttendanceBtn, { backgroundColor: colors.badgeGreen }]}
-                disabled={studentCount === 0}
                 onPress={() => setIsConfirmationVisible(true)}
               >
                 <Text style={styles.saveAttendanceBtnText}>Save Attendance</Text>
@@ -230,13 +276,13 @@ export default function TeacherProfileScreen() {
               />
             </View>
             
-            <Text style={[styles.modalSubText, { color: colors.subtext }]}>Session ID: SESSION-MOCK-001</Text>
+            <Text style={[styles.modalSubText, { color: colors.subtext }]}>{scannedCount} students have scanned</Text>
             
             <TouchableOpacity 
               style={[styles.closeButton, { backgroundColor: colors.primary }]} 
-              onPress={() => setIsQRModalVisible(false)}
+              onPress={handleCloseQR}
             >
-              <Text style={styles.closeButtonText}>Close</Text>
+              <Text style={styles.closeButtonText}>Close QR</Text>
             </TouchableOpacity>
             </View>
           </TouchableWithoutFeedback>
@@ -253,7 +299,7 @@ export default function TeacherProfileScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.confirmModalContent, { backgroundColor: colors.card }]}>
             <Text style={[styles.confirmModalTitle, { color: colors.text }]}>Confirm Attendance</Text>
-            <Text style={[styles.confirmModalText, { color: colors.subtext }]}>{studentCount} students will be marked present</Text>
+            <Text style={[styles.confirmModalText, { color: colors.subtext }]}>{connectedCount} students will be marked present</Text>
             
             <View style={styles.confirmButtonRow}>
               <TouchableOpacity 
