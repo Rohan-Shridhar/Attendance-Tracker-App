@@ -1,6 +1,21 @@
-const HOST = "10.168.222.184";
+const HOST = process.env.EXPO_PUBLIC_API_HOST;
 
-const BASE_URL = `http://${HOST}:3000/api`;
+// Prevent `http://undefined:3000/...` URLs when env var isn't set.
+// Expo requires `EXPO_PUBLIC_*` variables to be provided at build/runtime.
+const resolvedHost =
+  typeof HOST === "string" && HOST.trim().length > 0
+    ? HOST.trim()
+    : "localhost";
+
+if (!HOST || (typeof HOST === "string" && HOST.trim().length === 0)) {
+  console.warn(
+    "[API] EXPO_PUBLIC_API_HOST is not set. Falling back to:",
+    resolvedHost,
+    "(expected e.g. EXPO_PUBLIC_API_HOST=192.168.1.10)",
+  );
+}
+
+const BASE_URL = `http://${resolvedHost}:3000/api`;
 
 /**
  * Handle API responses and shared error logic
