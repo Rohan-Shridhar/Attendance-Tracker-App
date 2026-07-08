@@ -1,8 +1,8 @@
-const { getAttendanceModel } = require('../db/models/Attendance');
-const Student = require('../db/models/Student');
-const QRKey = require('../db/models/QRKey');
-const Notification = require('../db/models/Notification');
-const Teacher = require('../db/models/Teacher');
+const { getAttendanceModel } = require("../db/models/Attendance");
+const Student = require("../db/models/Student");
+const QRKey = require("../db/models/QRKey");
+const Notification = require("../db/models/Notification");
+const Teacher = require("../db/models/Teacher");
 
 /**
  * @desc    Get student attendance percentages for all subjects
@@ -16,7 +16,7 @@ const getStudentAttendance = async (req, res) => {
     dbm: "Database Management",
     oop: "Object Oriented Programming",
     ops: "Operating Systems",
-    cns: "Computer Networks"
+    cns: "Computer Networks",
   };
 
   try {
@@ -25,11 +25,11 @@ const getStudentAttendance = async (req, res) => {
     for (const [key, name] of Object.entries(subjects)) {
       const Attendance = getAttendanceModel(key);
       const records = await Attendance.find({});
-      
+
       let totalClasses = 0;
       let presentCount = 0;
 
-      records.forEach(doc => {
+      records.forEach((doc) => {
         // Doc is a plain object because of strict: false in Mongoose
         // But Mongoose still returns documents. Let's use doc[usn]
         const status = doc.get(usn);
@@ -41,11 +41,14 @@ const getStudentAttendance = async (req, res) => {
         }
       });
 
-      const percentage = totalClasses === 0 ? 0 : Math.round((presentCount / totalClasses) * 100);
-      
+      const percentage =
+        totalClasses === 0
+          ? 0
+          : Math.round((presentCount / totalClasses) * 100);
+
       results[key] = {
         subject: name,
-        percentage: percentage
+        percentage: percentage,
       };
     }
 
@@ -62,25 +65,51 @@ const getStudentAttendance = async (req, res) => {
  */
 const getClassAttendance = async (req, res) => {
   const { subject_id } = req.params;
-  
+
   // Extract last 3 chars and lowercase: "23CS4PCDST" -> "dst"
   const collectionName = subject_id.slice(-3).toLowerCase();
-  const usns = [
-    "1WN24CS001", "1WN24CS002", "1WN24CS003", "1WN24CS004", "1WN24CS005"
-  ];
+
+  // Return ALL students mapped to this attendance collection.
+  // The old code hard-coded only 5 USNs, which caused the teacher list to show 5 students.
+  // Collect distinct USNs from existing attendance records.
+  const allUsnSet = new Set();
+
+  // 1) Fetch all attendance docs for this subject to discover USN keys.
+  const Attendance = getAttendanceModel(collectionName);
+  const records = await Attendance.find({});
+  records.forEach((doc) => {
+    const obj = doc.toObject({ depopulate: true });
+    Object.keys(obj).forEach((key) => {
+      if (key && typeof key === "string" && key.startsWith("1WN24CS")) {
+        allUsnSet.add(key);
+      }
+    });
+  });
+
+  const usns = Array.from(allUsnSet);
+
+  // Fallback: if there are no attendance records yet, return all Student documents for this class/subject.
+  // (Assumes Student.usn values are in the same pattern as used in attendance docs.)
+  if (usns.length === 0) {
+    const students = await Student.find({ usn: { $regex: "^1WN24CS" } });
+    usns.push(...students.map((s) => s.usn));
+  }
+
+  // Ensure we return only unique USNs (defensive)
+  const uniqueUsns = Array.from(new Set(usns));
 
   try {
     const Attendance = getAttendanceModel(collectionName);
     const records = await Attendance.find({});
     const students = await Student.find({ usn: { $in: usns } });
 
-    const results = usns.map(usn => {
-      const student = students.find(s => s.usn === usn);
-      
+    const results = usns.map((usn) => {
+      const student = students.find((s) => s.usn === usn);
+
       let totalClasses = 0;
       let presentCount = 0;
 
-      records.forEach(doc => {
+      records.forEach((doc) => {
         const status = doc.get(usn);
         if (status !== undefined && status !== null) {
           totalClasses++;
@@ -90,12 +119,15 @@ const getClassAttendance = async (req, res) => {
         }
       });
 
-      const percentage = totalClasses === 0 ? 0 : Math.round((presentCount / totalClasses) * 100);
+      const percentage =
+        totalClasses === 0
+          ? 0
+          : Math.round((presentCount / totalClasses) * 100);
 
       return {
         usn: usn,
         name: student ? student.name : `Student ${usn.slice(-3)}`,
-        percentage: percentage
+        percentage: percentage,
       };
     });
 
@@ -118,15 +150,15 @@ const getSubjectDetail = async (req, res) => {
   try {
     const Attendance = getAttendanceModel(collectionName);
     const records = await Attendance.find({});
-    
+
     const history = [];
-    records.forEach(doc => {
+    records.forEach((doc) => {
       const status = doc.get(usn);
       if (status !== undefined && status !== null && doc.date) {
         history.push({
           id: doc._id?.toString() || Math.random().toString(),
           date: doc.date,
-          isPresent: status === "Present"
+          isPresent: status === "Present",
         });
       }
     });
@@ -143,16 +175,17 @@ const getSubjectDetail = async (req, res) => {
  */
 const parseDateString = (dateStr) => {
   if (!dateStr) return new Date(0);
-  
+
   // Handle DD-MM-YYYY
-  if (dateStr.includes('-')) {
-    const parts = dateStr.split('-');
-    if (parts[0].length === 2) { // DD-MM-YYYY
+  if (dateStr.includes("-")) {
+    const parts = dateStr.split("-");
+    if (parts[0].length === 2) {
+      // DD-MM-YYYY
       const [d, m, y] = parts;
       return new Date(y, m - 1, d);
     }
   }
-  
+
   // Default JS parsing (handles YYYY-MM-DD and human readable formats)
   const d = new Date(dateStr);
   return isNaN(d.getTime()) ? new Date(0) : d;
@@ -180,20 +213,20 @@ const markAttendance = async (req, res) => {
 
     // STEP 2 — Get collection name from subjectId
     const collectionName = subjectId.slice(-3).toLowerCase();
-    
+
     // format is HHMMSS + YYYYMMDD
     const datePart = timestampBlock.slice(6); // "20260418"
-    const day = datePart.slice(6);           // "18"
-    const month = datePart.slice(4, 6);       // "04"
-    const year = datePart.slice(0, 4);        // "2026"
-    const date = `${day}-${month}-${year}`;   // "18-04-2026"
+    const day = datePart.slice(6); // "18"
+    const month = datePart.slice(4, 6); // "04"
+    const year = datePart.slice(0, 4); // "2026"
+    const date = `${day}-${month}-${year}`; // "18-04-2026"
 
     console.log(`Parsed: date=${date} subject=${collectionName} usn=${usn}`);
 
     // STEP 4 — Validate token against qr_keys
     const [qrKey1, qrKey2] = await Promise.all([
       QRKey.findOne({ key_id: 1 }),
-      QRKey.findOne({ key_id: 2 })
+      QRKey.findOne({ key_id: 2 }),
     ]);
 
     console.log("QR Key 1 timestamp:", qrKey1?.timestamp);
@@ -202,10 +235,16 @@ const markAttendance = async (req, res) => {
     let isValid = false;
     let validKeyId = null;
 
-    if (qrKey1?.timestamp && qrKey1.timestamp.split("_")[0] === timestampBlock) {
+    if (
+      qrKey1?.timestamp &&
+      qrKey1.timestamp.split("_")[0] === timestampBlock
+    ) {
       isValid = true;
       validKeyId = 1;
-    } else if (qrKey2?.timestamp && qrKey2.timestamp.split("_")[0] === timestampBlock) {
+    } else if (
+      qrKey2?.timestamp &&
+      qrKey2.timestamp.split("_")[0] === timestampBlock
+    ) {
       isValid = true;
       validKeyId = 2;
     }
@@ -224,10 +263,14 @@ const markAttendance = async (req, res) => {
     if (existing) {
       await AttendanceModel.updateOne(
         { date: date },
-        { $set: { [usn]: "Present" } }
+        { $set: { [usn]: "Present" } },
       );
-      console.log(`Attendance written to collection: ${collectionName} (Updated)`);
-      return res.status(200).json({ message: "Attendance updated to Present", date, usn });
+      console.log(
+        `Attendance written to collection: ${collectionName} (Updated)`,
+      );
+      return res
+        .status(200)
+        .json({ message: "Attendance updated to Present", date, usn });
     } else {
       const newDoc = {
         date: date,
@@ -235,14 +278,17 @@ const markAttendance = async (req, res) => {
         "1WN24CS002": null,
         "1WN24CS003": null,
         "1WN24CS004": null,
-        "1WN24CS005": null
+        "1WN24CS005": null,
       };
       newDoc[usn] = "Present";
       await AttendanceModel.create(newDoc);
-      console.log(`Attendance written to collection: ${collectionName} (Created)`);
-      return res.status(201).json({ message: "Attendance marked Present", date, usn });
+      console.log(
+        `Attendance written to collection: ${collectionName} (Created)`,
+      );
+      return res
+        .status(201)
+        .json({ message: "Attendance marked Present", date, usn });
     }
-
   } catch (error) {
     console.error("markAttendance error:", error);
     res.status(500).json({ message: error.message });
@@ -260,21 +306,24 @@ const getStudentSubjectDetail = async (req, res) => {
   try {
     const AttendanceModel = getAttendanceModel(collectionName);
     const records = await AttendanceModel.find({});
-    
+
     const history = [];
-    records.forEach(doc => {
+    records.forEach((doc) => {
       const status = doc.get(usn);
       if (status !== undefined && status !== null) {
         history.push({
           id: doc._id?.toString() || Math.random().toString(),
           date: doc.date,
-          status: status
+          status: status,
         });
       }
     });
 
     // Sort by date descending
-    history.sort((a, b) => parseDateString(b.date).getTime() - parseDateString(a.date).getTime());
+    history.sort(
+      (a, b) =>
+        parseDateString(b.date).getTime() - parseDateString(a.date).getTime(),
+    );
 
     res.status(200).json(history);
   } catch (error) {
@@ -293,7 +342,11 @@ const getAttendancePreview = async (req, res) => {
   const collectionName = subject_id.slice(-3).toLowerCase();
 
   const allUSNs = [
-    "1WN24CS001", "1WN24CS002", "1WN24CS003", "1WN24CS004", "1WN24CS005"
+    "1WN24CS001",
+    "1WN24CS002",
+    "1WN24CS003",
+    "1WN24CS004",
+    "1WN24CS005",
   ];
 
   try {
@@ -305,15 +358,15 @@ const getAttendancePreview = async (req, res) => {
     }
 
     let presentCount = 0;
-    allUSNs.forEach(usn => {
+    allUSNs.forEach((usn) => {
       if (doc.get(usn) === "Present") {
         presentCount++;
       }
     });
 
-    res.status(200).json({ 
-      presentCount, 
-      absentCount: 5 - presentCount 
+    res.status(200).json({
+      presentCount,
+      absentCount: 5 - presentCount,
     });
   } catch (error) {
     console.error("getAttendancePreview error:", error);
@@ -331,10 +384,16 @@ const saveAttendance = async (req, res) => {
   const collectionName = subject_id.slice(-3).toLowerCase();
 
   const allUSNs = [
-    "1WN24CS001", "1WN24CS002", "1WN24CS003", "1WN24CS004", "1WN24CS005"
+    "1WN24CS001",
+    "1WN24CS002",
+    "1WN24CS003",
+    "1WN24CS004",
+    "1WN24CS005",
   ];
 
-  console.log(`Saving attendance for collection: ${collectionName} date: ${date}`);
+  console.log(
+    `Saving attendance for collection: ${collectionName} date: ${date}`,
+  );
 
   try {
     const AttendanceModel = getAttendanceModel(collectionName);
@@ -346,7 +405,7 @@ const saveAttendance = async (req, res) => {
 
     if (doc) {
       const setObj = {};
-      allUSNs.forEach(usn => {
+      allUSNs.forEach((usn) => {
         if (doc.get(usn) !== "Present") {
           setObj[usn] = "Absent";
           finalAbsentCount++;
@@ -357,11 +416,13 @@ const saveAttendance = async (req, res) => {
       });
 
       await AttendanceModel.updateOne({ date: date }, { $set: setObj });
-      console.log(`Attendance written to collection: ${collectionName} (Updated)`);
+      console.log(
+        `Attendance written to collection: ${collectionName} (Updated)`,
+      );
       console.log(`Present: ${finalPresentCount} Absent: ${finalAbsentCount}`);
     } else {
       const newDoc = { date: date };
-      allUSNs.forEach(usn => {
+      allUSNs.forEach((usn) => {
         newDoc[usn] = "Absent";
         absentUSNs.push(usn);
       });
@@ -369,7 +430,9 @@ const saveAttendance = async (req, res) => {
       finalPresentCount = 0;
 
       await AttendanceModel.create(newDoc);
-      console.log(`Attendance written to collection: ${collectionName} (Created)`);
+      console.log(
+        `Attendance written to collection: ${collectionName} (Created)`,
+      );
       console.log(`Present: 0 Absent: 5`);
     }
 
@@ -387,7 +450,7 @@ const saveAttendance = async (req, res) => {
         let totalClasses = 0;
         let presentCount = 0;
 
-        allRecords.forEach(r => {
+        allRecords.forEach((r) => {
           const status = r.get(usn);
           if (status !== undefined && status !== null) {
             totalClasses++;
@@ -397,7 +460,10 @@ const saveAttendance = async (req, res) => {
           }
         });
 
-        const percentage = totalClasses === 0 ? 0 : Math.round((presentCount / totalClasses) * 100);
+        const percentage =
+          totalClasses === 0
+            ? 0
+            : Math.round((presentCount / totalClasses) * 100);
 
         // Step 3: Create notification document
         await Notification.create({
@@ -409,21 +475,22 @@ const saveAttendance = async (req, res) => {
           attendance_percentage: percentage,
           message: `You were marked Absent for ${subjectName} on ${date}. Current attendance: ${percentage}%`,
           is_read: false,
-          created_at: new Date()
+          created_at: new Date(),
         });
 
-        console.log(`Notification created for ${usn} absent in ${subjectName} on ${date}`);
+        console.log(
+          `Notification created for ${usn} absent in ${subjectName} on ${date}`,
+        );
         notificationsSent++;
       }
     }
 
-    res.status(200).json({ 
-      message: "Attendance saved", 
-      absentCount: finalAbsentCount, 
+    res.status(200).json({
+      message: "Attendance saved",
+      absentCount: finalAbsentCount,
       presentCount: finalPresentCount,
-      notificationsSent
+      notificationsSent,
     });
-
   } catch (error) {
     console.error("saveAttendance error:", error);
     res.status(500).json({ message: error.message });
@@ -440,7 +507,11 @@ const getScannedCount = async (req, res) => {
   const collectionName = subject_id.slice(-3).toLowerCase();
 
   const allUSNs = [
-    "1WN24CS001", "1WN24CS002", "1WN24CS003", "1WN24CS004", "1WN24CS005"
+    "1WN24CS001",
+    "1WN24CS002",
+    "1WN24CS003",
+    "1WN24CS004",
+    "1WN24CS005",
   ];
 
   try {
@@ -452,7 +523,7 @@ const getScannedCount = async (req, res) => {
     }
 
     let count = 0;
-    allUSNs.forEach(usn => {
+    allUSNs.forEach((usn) => {
       if (doc.get(usn) === "Present") {
         count++;
       }

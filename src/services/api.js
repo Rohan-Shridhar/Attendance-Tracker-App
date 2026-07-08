@@ -16,7 +16,8 @@ if (!HOST || (typeof HOST === "string" && HOST.trim().length === 0)) {
 }
 
 const BASE_URL = `http://${resolvedHost}:3000/api`;
-
+console.log("HOST:", HOST);
+console.log("BASE_URL:", BASE_URL);
 /**
  * Handle API responses and shared error logic
  */
